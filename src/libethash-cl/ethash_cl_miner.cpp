@@ -29,7 +29,12 @@
 #include <vector>
 #include "ethash_cl_miner.h"
 #include "ethash_cl_miner_kernel.h"
+#include "FileSystem.h"
 #include <libethash/util.h>
+#include <boost/filesystem.hpp>
+
+using namespace dev;
+
 
 #define ETHASH_BYTES 32
 
@@ -151,7 +156,23 @@ bool ethash_cl_miner::init(ethash_params const& params, const uint8_t seed[32], 
 
 		// if this throws then it's because we probably need to subdivide the dag uploads for compatibility
 		void* dag_ptr = m_queue.enqueueMapBuffer(m_dag, true, m_opencl_1_1 ? CL_MAP_WRITE : CL_MAP_WRITE_INVALIDATE_REGION, 0, params.full_size);
-		ethash_compute_full_data(dag_ptr, &params, &cache);
+
+		try {
+			boost::filesystem::create_directories(getDataDir("ethash"));
+		}
+		catch (...) {}
+
+		std::string memoFile = getDataDir("ethash") + "/dag";
+
+		bytesRef dag_bytes = contentsNew(memoFile);
+		dag_ptr = static_cast<void*>(&dag_bytes[0]);
+
+		if (!dag_ptr)
+		{
+			ethash_compute_full_data(dag_ptr, &params, &cache);
+			writeFile(memoFile, dag_bytes);
+		}
+
 		m_queue.enqueueUnmapMemObject(m_dag, dag_ptr);
 
 		free(cache_mem);
