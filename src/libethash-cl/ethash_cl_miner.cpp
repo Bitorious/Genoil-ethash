@@ -29,12 +29,11 @@
 #include <vector>
 #include "ethash_cl_miner.h"
 #include "ethash_cl_miner_kernel.h"
-#include "FileSystem.h"
+#include <libdevcrypto/FileSystem.h>
 #include <libethash/util.h>
 #include <boost/filesystem.hpp>
 
 using namespace dev;
-
 
 #define ETHASH_BYTES 32
 
@@ -165,14 +164,15 @@ bool ethash_cl_miner::init(ethash_params const& params, const uint8_t seed[32], 
 		std::string memoFile = getDataDir("ethash") + "/dag";
 
 		bytesRef dag_bytes = contentsNew(memoFile);
-		dag_ptr = static_cast<void*>(&dag_bytes[0]);
-
-		if (!dag_ptr)
+		
+		if (!dag_bytes)
 		{
 			ethash_compute_full_data(dag_ptr, &params, &cache);
-			writeFile(memoFile, dag_bytes);
+			writeFile(memoFile, bytesRef((byte *)dag_ptr, params.full_size));
 		}
-
+		else {
+			dag_ptr = static_cast<void*>(dag_bytes.begin());
+		}
 		m_queue.enqueueUnmapMemObject(m_dag, dag_ptr);
 
 		free(cache_mem);
