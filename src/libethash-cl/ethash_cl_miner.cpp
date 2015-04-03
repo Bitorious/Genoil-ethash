@@ -148,25 +148,36 @@ bool ethash_cl_miner::init(ethash_params const& params, const uint8_t seed[32], 
 
 	// compute dag on CPU
 	{
-		void* cache_mem = malloc(params.cache_size + 63);
-		ethash_cache cache;
-		cache.mem = (void*)(((uintptr_t)cache_mem + 63) & ~63);
-		ethash_mkcache(&cache, &params, seed);
-
-		// if this throws then it's because we probably need to subdivide the dag uploads for compatibility
-		void* dag_ptr = m_queue.enqueueMapBuffer(m_dag, true, m_opencl_1_1 ? CL_MAP_WRITE : CL_MAP_WRITE_INVALIDATE_REGION, 0, params.full_size);
+		uint64_t length;
+		std::string dataDir = getDataDir("ethash");
 
 		try {
-			boost::filesystem::create_directories(getDataDir("ethash"));
+			boost::filesystem::create_directories(dataDir);
 		}
 		catch (...) {}
 
+		std::string cacheFile = dataDir + "/cache";
+		
+		void* cache_mem = malloc(params.cache_size + 63);
+		ethash_cache cache;
+
+		length = contentsToBuffer(cacheFile, cache_mem);
+		cache.mem = (void*)(((uintptr_t)cache_mem + 63) & ~63);
+
+		if (length != params.cache_size + 63) {			
+			
+			ethash_mkcache(&cache, &params, seed);
+			writeFile(cacheFile, bytesRef((byte *)cache_mem, params.cache_size + 63));
+		}
+		
+		// if this throws then it's because we probably need to subdivide the dag uploads for compatibility
+		void* dag_ptr = m_queue.enqueueMapBuffer(m_dag, true, m_opencl_1_1 ? CL_MAP_WRITE : CL_MAP_WRITE_INVALIDATE_REGION, 0, params.full_size);
+
 		std::string memoFile = getDataDir("ethash") + "/dag";
 
-		uint64_t length = contentsToBuffer(memoFile, dag_ptr);
+		length = contentsToBuffer(memoFile, dag_ptr);
 		
-		if (length==0)
-		{
+		if (length != params.full_size) {
 			ethash_compute_full_data(dag_ptr, &params, &cache);
 			writeFile(memoFile, bytesRef((byte *)dag_ptr, params.full_size));
 		}
