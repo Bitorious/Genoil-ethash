@@ -163,16 +163,14 @@ bool ethash_cl_miner::init(ethash_params const& params, const uint8_t seed[32], 
 
 		std::string memoFile = getDataDir("ethash") + "/dag";
 
-		bytesRef dag_bytes = contentsNew(memoFile);
+		uint64_t length = contentsToBuffer(memoFile, dag_ptr);
 		
-		if (!dag_bytes)
+		if (length==0)
 		{
 			ethash_compute_full_data(dag_ptr, &params, &cache);
 			writeFile(memoFile, bytesRef((byte *)dag_ptr, params.full_size));
 		}
-		else {
-			dag_ptr = static_cast<void*>(dag_bytes.begin());
-		}
+		
 		m_queue.enqueueUnmapMemObject(m_dag, dag_ptr);
 
 		free(cache_mem);
