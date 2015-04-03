@@ -24,6 +24,11 @@
 #include <chrono>
 #include <libethash/ethash.h>
 #include <libethash/util.h>
+#include <libdevcrypto/FileSystem.h>
+#include <boost/filesystem.hpp>
+
+using namespace dev;
+
 #ifdef OPENCL
 #include <libethash-cl/ethash_cl_miner.h>
 #endif
@@ -42,6 +47,7 @@
 #undef max
 
 using std::chrono::high_resolution_clock;
+//using namespace dev;
 
 #if defined(OPENCL)
 const unsigned trials = 1024*1024*32;
@@ -125,7 +131,25 @@ extern "C" int main(void)
 	// compute cache or full data
 	{
 		auto startTime = high_resolution_clock::now();
-		ethash_mkcache(&cache, &params, seed);
+		
+		uint64_t length;
+		std::string dataDir = getDataDir("ethash");
+
+		try {
+			boost::filesystem::create_directories(dataDir);
+		}
+		catch (...) {}
+
+		std::string cacheFile = dataDir + "/cache";
+
+		length = contentsToBuffer(cacheFile, cache_mem);
+
+		if (length != params.cache_size) {
+
+			ethash_mkcache(&cache, &params, seed);
+			writeFile(cacheFile, bytesRef((byte *)cache_mem, params.cache_size));
+		}
+				
 		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(high_resolution_clock::now() - startTime).count();
 
 		uint8_t cache_hash[32];
