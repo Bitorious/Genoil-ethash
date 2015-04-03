@@ -166,10 +166,18 @@ extern "C" int main(void)
 		}
 
 		#ifdef FULL
+
+			std::string dagFile = dataDir + "/dag";
+
+			length = contentsToBuffer(dagFile, full_mem);
 			startTime = high_resolution_clock::now();
-			ethash_compute_full_data(full_mem, &params, &cache);
+			if (length != params.full_size) {
+				ethash_compute_full_data(full_mem, &params, &cache);	
+				writeFile(dagFile, bytesRef((byte *)full_mem, params.full_size));
+			}
 			time = std::chrono::duration_cast<std::chrono::milliseconds>(high_resolution_clock::now() - startTime).count();
 			debugf("ethash_compute_full_data: %ums\n", (unsigned)time);
+
 		#endif // FULL
 	}
 
@@ -191,7 +199,7 @@ extern "C" int main(void)
 		ethash_return_value hash;
         ethash_full(&hash, full_mem, &params, previous_hash, 0);
         auto time = std::chrono::duration_cast<std::chrono::milliseconds>(high_resolution_clock::now() - startTime).count();
-        debugf("ethash_full test: %uns, %s\n", (unsigned)time);
+        debugf("ethash_full test: %uns\n", (unsigned)time);
     }
 #endif
 
@@ -273,7 +281,7 @@ extern "C" int main(void)
 	debugf("Search took: %ums\n", (unsigned)time/1000);
 
 	unsigned read_size = ACCESSES * MIX_BYTES;
-#if defined(OPENCL) || defined(FULL)
+#if defined(OPENCL) || defined(XXFULL)
 	debugf(
 		"hashrate: %8.2f Mh/s, bw: %8.2f GB/s\n",
 		(double)hash_count * (1000*1000)/time / (1000*1000),
